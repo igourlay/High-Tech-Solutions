@@ -30,8 +30,4 @@ print("Electrical pressure: " + str(P_elec) + " MPa")
 
 youngs_mod = input("Input Young's Modulus in units of MPa: ")
 
-
-
-
-
 P_mech = 2*P_elec
