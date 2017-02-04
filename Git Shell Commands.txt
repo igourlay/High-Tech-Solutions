@@ -1,0 +1,21 @@
+###Git Shell Commands
+
+git clone [put your url here] [put name of project here]
+
+"git status" - retrieves the status of the local and remote repositories
+
+"git add <filename>" - adds specific file from local directory to the pending commit
+
+"git add ." - adds all changed files from the local directory to pending commit
+
+"git commit -m 'your comment here'" - commits all files in the pending commit with the comment in "your comment here"
+
+"git commit -a" - commits all files in the pending commit and opens a text editor to add a comment to the commit
+
+"git push" - pushes the commit from the local to remote repository
+
+"git pull" - retrieve latest versions of files according to the current repository **does a git fetch and git merge in one command
+
+"git fetch" - will update remote-tracking branches without changing your working copy
+
+"git merge" - will merge local and remote branches
