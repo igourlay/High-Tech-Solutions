@@ -1,8 +1,6 @@
-###Project Jolt
+#Project Jolt
 
-#Initial Prototype
-
-Project Jolt is a project to construct a WiFi enabled coffee maker which is controlled from a mobile Android application. 
+The purpose of this project was to construct a WiFi enabled coffee maker controlled from a mobile application which would automate the process of brewing, blending and dispensing a coffee beverage.
 
 The initial prototype includes:
 
@@ -10,4 +8,3 @@ The initial prototype includes:
 - Particle Relay Shield
 - Generic Coffee Maker
 - 5V AC Wall Adapter
-
