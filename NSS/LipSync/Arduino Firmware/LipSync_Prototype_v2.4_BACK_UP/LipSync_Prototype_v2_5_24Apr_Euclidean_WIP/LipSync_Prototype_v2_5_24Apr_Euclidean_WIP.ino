@@ -83,6 +83,9 @@
    04 Apr 2017
    10 Apr 2017
    12 Apr 2017
+   14 Apr 2017
+   15 Apr 2017
+   24 Apr 2017
 */
 
 #include <EEPROM.h>
@@ -126,8 +129,8 @@ int config_done;                                  // Binary check of completed B
 unsigned int puff_count, sip_count;               // int puff and long sip incremental counter :: changed from unsigned long to unsigned int
 
 int poll_counter = 0;                             // cursor poll counter
-int init_counter = 0;                             // serial port initialization counter
-int calibration_counter = 0;                      // automatic calibration counter [self-correcting]
+int init_counter_A = 0;                           // serial port initialization counter
+int init_counter_B = 0;                           // serial port initialization counter
 
 int default_cursor_speed = 30;
 int delta_cursor_speed = 5;
@@ -196,13 +199,19 @@ void setup() {
   pinMode(11, INPUT_PULLUP);
   pinMode(13, INPUT_PULLUP);
 
-  Serial_Initialization();
+  //delay(2000);                                    // DO NOT REMOVE DELAY!!!
+
+  //while(!Serial);
+
+  while(!Serial1);
+  
+  Joystick_Initialization();                      // home joystick and generate movement threshold boundaries
+  delay(10);
+  Pressure_Sensor_Initialization();
   delay(10);
   Set_Default();                                  // should only occur once per initialization of a new microcontroller
   delay(10);
-  Pressure_Sensor_Initialization();               // register nominal air pressure and generate activation threshold boundaries
-  delay(10);
-  Joystick_Initialization();                      // home joystick and generate movement threshold boundaries
+  //Serial_Initialization();
   delay(10);
   Communication_Mode_Status();                    // identify the selected communication mode
   delay(10);
@@ -217,10 +226,10 @@ void setup() {
   Serial.print("Configuration time: ");
   Serial.println(exec_time);
 
-  Force_Cursor_Display();
-  Display_Feature_List();
+  blink(4, 250, 3);                               // end initialization visual feedback
 
-  blink(4, 100, 3);                               // end initialization visual feedback
+  Force_Cursor_Display();
+  Display_Feature_List();  
 
   cursor_delay = cursor_params[speed_counter]._delay;
   cursor_factor = cursor_params[speed_counter]._factor;
@@ -267,7 +276,6 @@ void setup() {
   Serial.print("yl_max: ");
   Serial.println(EEPROM.get(28, ylm_check));
   delay(5);
-
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------
@@ -284,26 +292,25 @@ void loop() {
 
     single++;
     }
-  //*/
+    //*/
 
   xh = analogRead(X_DIR_HIGH);                    // A0 :: NOT CORRECT MAPPINGS
   xl = analogRead(X_DIR_LOW);                     // A1
   yh = analogRead(Y_DIR_HIGH);                    // A2
   yl = analogRead(Y_DIR_LOW);                     // A10
 
-  ///*
   xh_yh = sqrt(sq(((xh - x_right) > 0) ? (float)(xh - x_right) : 0.0) + sq(((yh - y_up) > 0) ? (float)(yh - y_up) : 0.0));     // sq() function raises input to power of 2, returning the same data type int->int ...
   xh_yl = sqrt(sq(((xh - x_right) > 0) ? (float)(xh - x_right) : 0.0) + sq(((yl - y_down) > 0) ? (float)(yl - y_down) : 0.0));   // the sqrt() function raises input to power 1/2, returning a float type
   xl_yh = sqrt(sq(((xl - x_left) > 0) ? (float)(xl - x_left) : 0.0) + sq(((yh - y_up) > 0) ? (float)(yh - y_up) : 0.0));      // These are the vector magnitudes of each quadrant 1-4. Since the FSRs all register
   xl_yl = sqrt(sq(((xl - x_left) > 0) ? (float)(xl - x_left) : 0.0) + sq(((yl - y_down) > 0) ? (float)(yl - y_down) : 0.0));    // a larger digital value with a positive application force, a large negative difference
-  //*/                                                    // can also be calculated as a large positive number
 
-  //if (isnan(xh_yh)) xh_yh = 0.0;
-  //if (isnan(xh_yl)) xh_yl = 0.0;
-  //if (isnan(xl_yh)) xl_yh = 0.0;
-  //if (isnan(xl_yl)) xl_yl = 0.0;
-  
-  if (xh_yh > xh_yh_radius || xh_yl > xh_yl_radius || xl_yl > xl_yl_radius || xl_yh > xl_yh_radius) {
+/*
+  xh_yh = ((xh - x_right) > 0 ? (float)(xh - x_right) : 0) + ((yh - y_up) > 0 ? (float)(yh - y_up) : 0);
+  xh_yl = ((xh - x_right) > 0 ? (float)(xh - x_right) : 0) + ((yl - y_down) > 0 ? (float)(yl - y_down) : 0);
+  xl_yh = ((xl - x_left) > 0 ? (float)(xl - x_left) : 0) + ((yh - y_up) > 0 ? (float)(yh - y_up) : 0);
+  xl_yl = ((xl - x_left) > 0 ? (float)(xl - x_left) : 0) + ((yl - y_down) > 0 ? (float)(yl - y_down) : 0);
+*/
+  if ((xh_yh > xh_yh_radius) || (xh_yl > xh_yl_radius) || (xl_yl > xl_yl_radius) || (xl_yh > xl_yh_radius)) {
 
     poll_counter++;
 
@@ -318,25 +325,21 @@ void loop() {
           Mouse.move(x_cursor_high(xh), y_cursor_high(yh), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xh_yl > xh_yh) && (xh_yl > xl_yl) && (xh_yl > xl_yh)) {
           //Serial.println("quad4");
           Mouse.move(x_cursor_high(xh), y_cursor_low(yl), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xl_yl >= xh_yh) && (xl_yl >= xh_yl) && (xl_yl >= xl_yh)) {
           //Serial.println("quad3");
           Mouse.move(x_cursor_low(xl), y_cursor_low(yl), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xl_yh > xh_yh) && (xl_yh >= xh_yl) && (xl_yh >= xl_yl)) {
           //Serial.println("quad2");
           Mouse.move(x_cursor_low(xl), y_cursor_high(yh), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         }
       } else {
 
@@ -345,25 +348,21 @@ void loop() {
           mouseCommand(cursor_click_status, x_cursor_high(xh), y_cursor_high(yh), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xh_yl > xh_yh) && (xh_yl > xl_yl) && (xh_yl > xl_yh)) {
           //Serial.println("quad4");
           mouseCommand(cursor_click_status, x_cursor_high(xh), y_cursor_low(yl), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xl_yl >= xh_yh) && (xl_yl >= xh_yl) && (xl_yl >= xl_yh)) {
           //Serial.println("quad3");
           mouseCommand(cursor_click_status, x_cursor_low(xl), y_cursor_low(yl), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         } else if ((xl_yh > xh_yh) && (xl_yh >= xh_yl) && (xl_yh >= xl_yl)) {
           //Serial.println("quad2");
           mouseCommand(cursor_click_status, x_cursor_low(xl), y_cursor_high(yh), 0);
           delay(cursor_delay);
           poll_counter = 0;
-          calibration_counter = 0;
         }
       }
     }
@@ -378,7 +377,6 @@ void loop() {
     } else {
       increase_cursor_speed();      // increase cursor speed with push button up
     }
-    calibration_counter = 0;
   }
 
   if (digitalRead(PUSH_BUTTON_DOWN) == LOW) {
@@ -388,7 +386,6 @@ void loop() {
     } else {
       decrease_cursor_speed();      // decrease cursor speed with push button down
     }
-    calibration_counter = 0;
   }
 
   //pressure sensor sip and puff functions below
@@ -442,7 +439,6 @@ void loop() {
     }
 
     puff_count = 0;
-    calibration_counter = 0;
   }
 
   if (cursor_click > sip_threshold) {
@@ -479,26 +475,34 @@ void loop() {
         delay(5);
       }
     }
-
-
     sip_count = 0;
-    calibration_counter = 0;
   }
-
-  //calibration_counter++; //comment back in to experiment with auto_calibration
-
-  if (calibration_counter > 1000) {
-    //Auto_Joystick_Home_Calibration();
-
-    // ^^ THIS IS AN UN-TESTED IMPLEMENTATION OF THIS FUNCTION WHICH MAY HELP WITH GRADUALLY ACCUMULATED HOME POSITION SHIFT
-  }
-
-
 }
 
 //***END OF INFINITE LOOP***//
 
 //-----------------------------------------------------------------------------------------------------------------------------------
+
+
+void Display_Feature_List(void) {
+
+  Serial.println(" ");
+  Serial.println(" --- ");
+  Serial.println("This is the 24 April - FSR Bluetooth Euclidean WIP");
+  Serial.println(" ");
+  Serial.println("Enhanced functions:");
+  Serial.println(" ");
+  Serial.println("Tap and drag");
+  Serial.println("Scrolling");
+  Serial.println("Joystick calibration");
+  Serial.println("Middle mouse button");
+  Serial.println("Hands-free home positioning reset");
+  Serial.println("Cursor security swipe function");
+  Serial.println("Bluetooth capable connectivity");
+  Serial.println(" --- ");
+  Serial.println(" ");
+
+}
 
 //***CURSOR: SIP SECONDARY FUNCTION SELECTION***//
 void sip_secondary(void) {
@@ -676,40 +680,12 @@ int y_cursor_high(int j) {
     int k = (int)(round(-1.0 * pow(cursor_max_speed, y_up_factor)) - 1.0);
 
     if (k <= (-1 * cursor_max_speed) ) {
-
       k = -1 * cursor_max_speed;
-
-      /*
-        Serial.print("yh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else if ( (k < 0) && (k > (-1 * cursor_max_speed))) {
-
-      /*
-        Serial.print("yh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else {
       k = 0;
-
-      /*
-        Serial.print("yh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     }
   } else {
@@ -728,39 +704,11 @@ int y_cursor_low(int j) {
     if (k >= cursor_max_speed) {
 
       k = cursor_max_speed;
-
-      /*
-        Serial.print("yl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else if ((k > 0) && (k < cursor_max_speed)) {
-
-      /*
-        Serial.print("yl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else {
-
       k = 0;
-
-      /*
-        Serial.print("yl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     }
   } else {
@@ -779,38 +727,11 @@ int x_cursor_high(int j) {
     if (k >= cursor_max_speed) {
 
       k = cursor_max_speed;
-
-      /*
-        Serial.print("xh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else if ((k > 0) && (k < cursor_max_speed)) {
-
-      /*
-        Serial.print("xh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else {
       k = 0;
-
-      /*
-        Serial.print("xh:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     }
   } else {
@@ -828,38 +749,11 @@ int x_cursor_low(int j) {
 
     if ( k <= (-1 * cursor_max_speed) ) {
       k = -1 * cursor_max_speed;
-
-      /*
-        Serial.print("xl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else if ( (k < 0) && (k > -1 * cursor_max_speed)) {
-
-      /*
-        Serial.print("xl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     } else {
       k = 0;
-
-      /*
-        Serial.print("xl:");
-        Serial.print(j);
-        Serial.print(", ");
-        Serial.print("k:");
-        Serial.println(k);
-        //*/
-
       return k;
     }
   } else {
@@ -986,19 +880,15 @@ void Communication_Mode_Status(void) {
 void Joystick_Initialization(void) {
   xh = analogRead(X_DIR_HIGH);            // Initial neutral x-high value of joystick
   delay(10);
-  Serial.println(xh);                     // Recommend keeping in for diagnostic purposes
 
   xl = analogRead(X_DIR_LOW);             // Initial neutral x-low value of joystick
   delay(10);
-  Serial.println(xl);                     // Recommend keeping in for diagnostic purposes
 
   yh = analogRead(Y_DIR_HIGH);            // Initial neutral y-high value of joystick
   delay(10);
-  Serial.println(yh);                     // Recommend keeping in for diagnostic purposes
 
   yl = analogRead(Y_DIR_LOW);             // Initial neutral y-low value of joystick
   delay(10);
-  Serial.println(yl);                     // Recommend keeping in for diagnostic purposes
 
   x_right = xh;
   x_left = xl;
@@ -1035,13 +925,10 @@ void Joystick_Initialization(void) {
 
 void Pressure_Sensor_Initialization(void) {
   float nominal_cursor_value = (((float)analogRead(PRESSURE_CURSOR)) / 1024.0) * 5.0; // Initial neutral pressure transducer analog value [0.0V - 5.0V]
-  delay(10);
 
   sip_threshold = nominal_cursor_value + 0.5;    //Create sip pressure threshold value ***Larger values tend to minimize frequency of inadvertent activation
-  //delay(20);
 
   puff_threshold = nominal_cursor_value - 0.5;   //Create puff pressure threshold value ***Larger values tend to minimize frequency of inadvertent activation
-  //delay(20);
 }
 
 //***ARDUINO/GENUINO HID MOUSE INITIALIZATION FUNCTION***//
@@ -1075,7 +962,7 @@ void BT_Configure(void) {
     if (config_done == 0) {                           // if Bluetooth has not been configured then execute configuration sequence
       BT_Command_Mode();                               // enter Bluetooth command mode
       BT_Config_Sequence();                           // send configuarion data to Bluetooth module
-      BT_configAOK();                                 // returns diagnostic responses from Bluetooth
+      //BT_configAOK();                                 // returns diagnostic responses from Bluetooth
       delay(10);
     } else {
       Serial.println("Bluetooth configuration has previously been completed.");
@@ -1094,63 +981,63 @@ void BT_Command_Mode(void) {                 //***CHANGE THE TRANSISTOR CONTROLS
 
   for (int i = 0; i < 3; i++) {             // cycle PIO4 pin high-low 3 times with 1 sec delay between each level transition
     digitalWrite(PIO4, HIGH);
-    delay(75);
+    delay(150);
     digitalWrite(PIO4, LOW);
-    delay(75);
+    delay(150);
   }
 
   digitalWrite(PIO4, LOW);                  // drive PIO4 pin low as per command mode instructions
   delay(10);
   Serial1.print("$$$");                     // enter Bluetooth command mode :: "$$$" CANNOT be Serial.println("$$$") ONLY Serial.print("$$$")
-  delay(10);                              // time delay to visual inspect the red LED is flashing at 10Hz which indicates the Bluetooth module is in Command Mode
+  delay(50);                              // time delay to visual inspect the red LED is flashing at 10Hz which indicates the Bluetooth module is in Command Mode
   Serial.println("Bluetooth Command Mode Activated");
 }
 
 void BT_Config_Sequence(void) {
   Serial1.println("ST,255");                 // turn off the 60 sec timer for command mode
-  delay(10);
+  delay(15);
   Serial1.println("SA,2");                   // ***NEW ADDITION - Authentication Values 2: "any mode" work
-  delay(10);
+  delay(15);
   Serial1.println("SX,0");                   // ***NEW ADDITION - Bonding 0: disabled
-  delay(10);
-  Serial1.println("SN,LipSyncBT_Autoload2"); // change name of BT module
-  delay(10);
+  delay(15);
+  Serial1.println("SN,LipSyncBT_Autoload3"); // change name of BT module
+  delay(15);
   Serial1.println("SM,6");                   // ***NEW ADDITION - Pairing "SM,6": auto-connect mode
-  delay(10);
+  delay(15);
   Serial1.println("SH,0220");                // configure device as HID mouse
-  delay(10);
+  delay(15);
   Serial1.println("S~,6");                   // activate HID profile
-  delay(10);
+  delay(15);
 
   //Serial1.println("SW,<hex value>");       // sniff mode conserves power by polling the radio for comms ***POWER CONSERVATION
   //delay(100);
   //Serial1.println("SY,<hex value>");       // set transmit power settings ***POWER CONSERVATION
 
   Serial1.println("SQ,0");                   // configure for latency NOT throughput -> turn off: "SQ,0"
-  delay(10);
+  delay(15);
   Serial1.println("S?,1");                   // 1:ENABLE role switch -> slave device attempts role switch -> indicates better performance for high speed data
-  delay(10);
+  delay(15);
   Serial1.println("R,1");                    // reboot BT module
-  delay(10);
+  delay(15);
 
   int val0 = 1;
   int val1 = speed_counter;
 
   EEPROM.put(0, val0);                        // EEPROM address 0 gets configuration completed value (== 1)
-  delay(5);
+  delay(15);
   EEPROM.put(2, val1);                        // EEPROM address 1 gets default cursor speed counter value (== 20) ***SHOULD ONLY OCCUR ONCE UNLESS THE LIPSYNC IS FACTORY RESET??
-  delay(5);
+  delay(15);
   int val3;
   EEPROM.get(0, val3);  // diagnostics
-  delay(5);            // diagnostics
-  Serial.println(val3); // diagnostics
+  delay(15);            // diagnostics
+  //Serial.println(val3); diagnostics
 }
 
 void BT_Low_Power_Mode(void) {
   BT_Command_Mode();                          // enter BT command mode
   Serial1.println('Z');                       // enter deep sleep mode (<2mA) when not connected
   delay(10);
-  digitalWrite(TRANS_CONTROL, LOW);
+  BT_configAOK();
   Serial.println("Bluetooth Deep Sleep Mode Activated");
   delay(10);
 }
@@ -1255,24 +1142,6 @@ void Joystick_Calibration(void) {
   Serial.println("Joystick speed calibration procedure is complete.");
 }
 
-//***AUTOMATIC JOYSTICK POSITION CALIBRATION***//
-void Auto_Joystick_Home_Calibration(void) {
-
-  xh = analogRead(X_DIR_HIGH);
-  xl = analogRead(X_DIR_LOW);
-  yh = analogRead(Y_DIR_HIGH);
-  yl = analogRead(Y_DIR_LOW);
-
-  x_right = xh;
-  x_left = xl;
-  y_up = yh;
-  y_down = yl;
-
-  blink(1, 50, 1);
-
-  calibration_counter = 0;
-}
-
 //***MANUAL JOYSTICK POSITION CALIBRATION***///
 void Manual_Joystick_Home_Calibration(void) {
 
@@ -1325,8 +1194,6 @@ void Manual_Joystick_Home_Calibration(void) {
   EEPROM.put(18, xl_comp);
   delay(10);
 
-  calibration_counter = 0;
-
   Serial.println("Home position calibration complete.");
 
 }
@@ -1334,16 +1201,26 @@ void Manual_Joystick_Home_Calibration(void) {
 //***SPECIAL INITIALIZATION OPERATIONS***//
 
 void Serial_Initialization(void) {
-  while ((!Serial) || (!Serial1)) {
-
-    if (init_counter < 500) {
+  while (!Serial1) {
+    while (!Serial) {
+      if (init_counter_A < 100) {
+        delay(5);
+        init_counter_A++;
+      } else {
+        break;
+      }
+    }
+    if (init_counter_B < 100) {
       delay(5);
-      init_counter++;
+      init_counter_B++;
     } else {
       break;
     }
   }
-  Serial.println("Serial is good!");
+  delay(10);
+  Serial.println(init_counter_A);
+  Serial.println(init_counter_B);
+  Serial.println("Serial and Serial1 are good!");
 }
 
 void Set_Default(void) {
@@ -1384,25 +1261,3 @@ void Set_Default(void) {
 
   }
 }
-
-void Display_Feature_List(void) {
-
-  Serial.println(" ");
-  Serial.println(" --- ");
-  Serial.println("This is the 12 April - FSR Bluetooth-Enabled WIP");
-  Serial.println(" ");
-  Serial.println("Enhanced functions:");
-  Serial.println(" ");
-  Serial.println("Tap and drag");
-  Serial.println("Scrolling");
-  Serial.println("Joystick calibration");
-  Serial.println("Middle mouse button");
-  Serial.println("Hands-free home positioning reset");
-  Serial.println("Cursor security swipe function");
-  Serial.println("Bluetooth capable connectivity");
-  Serial.println(" --- ");
-  Serial.println(" ");
-
-}
-
-
