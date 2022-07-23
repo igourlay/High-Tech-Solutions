@@ -1,7 +1,5 @@
-# Bioniq Technologies
+# High Tech Solutions
 
-Our primary areas of research are:
-- Biomechatronic devices
-- Smart systems
-- Applied electromagnets
-- Cryptology
+My primary area of work:
+- Data Analysis
+- Cryptography
