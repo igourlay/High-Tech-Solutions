@@ -1,7 +1,0 @@
-09 May 2017
-
-Constructed prototype for audio prompt sip and puff input device (Jarrod)
- - Current: Prototyping PCB with microcontroller, audio synthesizer and S&P module installed on headers
- - Need to do: 1. connect appropriate I/O between microcontroller, audio syn and S&P module for proof of concept
-	       2. write firmware for simple audio prompt sorting and S&P prompt selection
-	       3. write firmware to output ASCII characters with the HID keyboard
